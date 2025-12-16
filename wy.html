@@ -1,0 +1,403 @@
+<!doctype html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>Encrypt / Decrypt (compatible with C++ programs)</title>
+	<style>
+		/* Replaced styles: rounded corners, gradient background, subtle shadows, improved buttons */
+		html,body{height:100%}
+		body{
+			font-family:Inter,Segoe UI,Arial,Helvetica,sans-serif;
+			margin:16px;
+			background: linear-gradient(180deg,#0f172a 0%, #071024 60%, #021025 100%);
+			color:#e6eef8;
+			min-height:100vh;
+			-webkit-font-smoothing:antialiased;
+		}
+		.container{
+			max-width:1000px;
+			margin:0 auto;
+			display:grid;
+			grid-template-columns:1fr 360px;
+			gap:18px;
+			align-items:start;
+		}
+		.card{
+			background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+			border-radius:12px;
+			padding:14px;
+			box-shadow: 0 6px 18px rgba(2,6,23,0.6), inset 0 1px 0 rgba(255,255,255,0.02);
+			backdrop-filter: blur(6px);
+			border:1px solid rgba(255,255,255,0.04);
+		}
+		h3{margin:0 0 8px 0;font-weight:600}
+		/* textarea now uses Consolas and variable font-size */
+		textarea{
+			width:100%;
+			height:120px;
+			margin-bottom:8px;
+			border-radius:8px;
+			border:1px solid rgba(255,255,255,0.06);
+			padding:10px;
+			background:transparent;
+			color:inherit;
+			resize:vertical;
+			font-family: Consolas, "Courier New", monospace;
+			font-size: 14px; /* default; JS may override */
+			line-height:1.4;
+		}
+		.row{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+		.btn{
+			padding:8px 12px;
+			border-radius:8px;
+			border:0;
+			cursor:pointer;
+			background:linear-gradient(90deg,#2563eb,#7c3aed);
+			color:white;
+			box-shadow:0 6px 12px rgba(124,58,237,0.18);
+			transition:transform .08s ease, box-shadow .12s ease, opacity .12s;
+			font-weight:600;
+		}
+		/* small control styles for font size */
+		.font-control{display:flex;align-items:center;gap:8px;padding-left:6px}
+		.font-control input[type=range]{width:160px}
+		.font-control .val{min-width:42px;text-align:right;font-size:13px;opacity:0.95}
+		.btn.secondary{
+			background:linear-gradient(90deg,#0ea5a4,#06b6d4);
+			box-shadow:0 6px 12px rgba(6,182,212,0.12);
+		}
+		.btn.ghost{
+			background:transparent;
+			border:1px solid rgba(255,255,255,0.06);
+			color:#cfe9ff;
+			box-shadow:none;
+		}
+		.btn:active{transform:translateY(1px)}
+		.controls{display:flex;gap:8px;align-items:center}
+		.history-list{max-height:520px;overflow:auto;padding:6px;display:flex;flex-direction:column;gap:8px}
+		.hist-item{
+			padding:10px;border-radius:8px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+			border:1px solid rgba(255,255,255,0.02);font-size:13px;color:#dbeafe;cursor:pointer;
+		}
+		.hist-meta{font-size:12px;opacity:0.8;margin-top:6px;display:flex;justify-content:space-between}
+		.search{width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:inherit;margin-bottom:8px}
+		.small{font-size:12px;opacity:0.9}
+		/* responsive */
+		@media (max-width:900px){
+			.container{grid-template-columns:1fr; padding:8px}
+			.font-control input[type=range]{width:120px}
+		}
+	</style>
+</head>
+<body>
+	<h2 style="text-align:center;margin-bottom:14px">Encrypt / Decrypt — compatible with C++ outb/getb</h2>
+	<div class="container">
+		<div class="card">
+			<h3>输入（明文或密文）</h3>
+			<textarea id="input"></textarea>
+
+			<div class="row">
+				<button id="encrypt" class="btn">加密</button>
+				<button id="decrypt" class="btn secondary">解密</button>
+				<button id="copy" class="btn ghost">复制输出</button>
+				<button id="paste" class="btn ghost" title="从剪贴板粘贴到输入">粘贴</button>
+
+				<!-- font size control added -->
+				<div class="font-control" title="调整输入/输出区域字体大小">
+					<label for="fontSizeRange" style="font-size:13px;opacity:0.9">字体大小</label>
+					<input id="fontSizeRange" type="range" min="10" max="24" step="1" value="14" />
+					<div id="fontSizeVal" class="val">14px</div>
+				</div>
+			</div>
+
+			<h3>输出</h3>
+			<textarea id="output" readonly></textarea>
+
+			<p class="small">Tip: 点击历史项可将该条内容恢复到输入（或复制到输出）。历史保存在本地浏览器。</p>
+		</div>
+
+		<!-- History panel -->
+		<div class="card" aria-labelledby="history-title">
+			<h3 id="history-title">查询历史</h3>
+			<input id="historySearch" class="search" placeholder="搜索（输入/输出/模式/时间）" />
+			<div class="row" style="margin-bottom:6px">
+				<button id="clearHistory" class="btn ghost">清空历史</button>
+				<button id="exportHistory" class="btn ghost">导出</button>
+				<button id="importHistory" class="btn ghost">导入</button>
+			</div>
+			<div id="historyList" class="history-list" aria-live="polite"></div>
+		</div>
+	</div>
+
+	<script>
+		// filepath: e:\c++.code\own\password\wy.html
+
+		// 与 C++ outb/getb 兼容的实现（加密.cpp / 解密.cpp）
+		function outb(x) {
+			// base y in [2,7]
+			const y = Math.floor(Math.random() * 4) + 4; // 2..7
+			// prefix: '8' or '9'
+			const prefix = String.fromCharCode(56 + Math.floor(Math.random() * 2)); // 56 == '8'
+			if (x === 0) {
+				// prefix + base only (no digits)
+				return prefix + String.fromCharCode(48 + y);
+			}
+			let s = '';
+			let v = x;
+			while (v > 0) {
+				const d = v % y;
+				s = String.fromCharCode(48 + d) + s;
+				v = Math.floor(v / y);
+			}
+			return prefix + String.fromCharCode(48 + y) + s;
+		}
+
+		function encryptText(text) {
+			// fir 类似 C++ rand() -> 0..32767
+			const fir = Math.floor(Math.random() * 32768);
+			let out = outb(fir);
+			for (let i = 0; i < text.length; i++) {
+				const code = text.charCodeAt(i);
+				out += outb(code + fir);
+			}
+			return out;
+		}
+
+		function parseEncodedString(s) {
+			// 解析以 '8' 或 '9' 开始的块序列，返回整数数组（包括第一个 fir）
+			const nums = [];
+			let i = 0;
+			const n = s.length;
+			while (i < n) {
+				// 找到前缀 '8' 或 '9'
+				while (i < n && s[i] !== '8' && s[i] !== '9') i++;
+				if (i >= n) break;
+				i++; // 跳过前缀
+				if (i >= n) break;
+				const baseChar = s[i++];
+				const y = baseChar.charCodeAt(0) - 48;
+				if (!(y >= 2 && y <= 7)) {
+					// 非法格式，继续寻找下一个前缀
+					continue;
+				}
+				let x = 0;
+				// 读取在 base y 中的连续数字字符，直到遇到下一个前缀 ('8' 或 '9') 或结束
+				while (i < n && s[i] !== '8' && s[i] !== '9') {
+					const digit = s[i].charCodeAt(0) - 48;
+					// 如果不是有效数字则停止读取该块（与 C++ 相比更鲁棒地跳出）
+					if (digit < 0 || digit >= y) { i++; continue; }
+					x = x * y + digit;
+					i++;
+				}
+				nums.push(x);
+				// 下次循环会从下一个前缀开始（若存在）
+			}
+			return nums;
+		}
+
+		function decryptText(s) {
+			const nums = parseEncodedString(s);
+			if (nums.length === 0) return '';
+			const fir = nums[0];
+			let out = '';
+			for (let k = 1; k < nums.length; k++) {
+				const val = nums[k] - fir;
+				if (val < 0) continue;
+				out += String.fromCharCode(val);
+			}
+			return out;
+		}
+
+		// New: history management (save to localStorage, render, search, import/export)
+		(function(){
+			const KEY = 'wy_history_v1';
+			const MAX = 20;
+
+			function loadHistory(){
+				try{
+					const raw = localStorage.getItem(KEY);
+					if(!raw) return [];
+					return JSON.parse(raw) || [];
+				}catch(e){ return []; }
+			}
+			function saveHistory(arr){
+				try{
+					localStorage.setItem(KEY, JSON.stringify(arr.slice(0, MAX)));
+				}catch(e){}
+			}
+			function pushHistory(entry){
+				const arr = loadHistory();
+				arr.unshift(entry);
+				saveHistory(arr);
+				renderHistory();
+			}
+			function clearHistory(){
+				localStorage.removeItem(KEY);
+				renderHistory();
+			}
+			function exportHistory(){
+				const arr = loadHistory();
+				const blob = new Blob([JSON.stringify(arr, null, 2)], {type:'application/json'});
+				const url = URL.createObjectURL(blob);
+				const a = document.createElement('a');
+				a.href = url; a.download = 'wy_history.json'; document.body.appendChild(a); a.click();
+				setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 500);
+			}
+			function importHistoryFile(file){
+				const reader = new FileReader();
+				reader.onload = () => {
+					try{
+						const parsed = JSON.parse(reader.result);
+						if(Array.isArray(parsed)){
+							const existing = loadHistory();
+							const merged = parsed.concat(existing).slice(0, MAX);
+							saveHistory(merged);
+							renderHistory();
+						}
+					}catch(e){}
+				};
+				reader.readAsText(file);
+			}
+
+			function formatTime(ts){
+				const d = new Date(ts);
+				return d.toLocaleString();
+			}
+
+			function renderHistory(filter){
+				const list = document.getElementById('historyList');
+				list.innerHTML = '';
+				const arr = loadHistory();
+				const q = (filter||'').toLowerCase().trim();
+				let count = 0;
+				for(const it of arr){
+					const text = (it.input||'') + ' ' + (it.output||'') + ' ' + (it.mode||'') + ' ' + formatTime(it.time);
+					if(q && !text.toLowerCase().includes(q)) continue;
+					const item = document.createElement('div');
+					item.className = 'hist-item';
+					item.title = '点击复制/恢复此记录';
+					item.innerHTML = '<div style="font-weight:600">' + escapeHtml(truncate(it.mode + ': ' + (it.input||''), 80)) + '</div>'
+						+ '<div style="margin-top:6px;word-break:break-all;color:#bfe0ff">' + escapeHtml(truncate(it.output||'', 160)) + '</div>'
+						+ '<div class="hist-meta"><span>' + escapeHtml(formatTime(it.time)) + '</span><span>' + escapeHtml(it.mode) + '</span></div>';
+					item.addEventListener('click', ()=>{
+						// clicking toggles: left-click fills input with input; shift-click copies output
+						if(event.shiftKey){
+							copyTextToClipboard(it.output||'');
+						}else{
+							document.getElementById('input').value = it.input || '';
+							document.getElementById('output').value = it.output || '';
+						}
+					});
+					list.appendChild(item);
+					count++;
+					if(count >= MAX) break;
+				}
+				if(count === 0){
+					const empty = document.createElement('div');
+					empty.className = 'small';
+					empty.style.opacity = '0.8';
+					empty.textContent = '无历史记录';
+					list.appendChild(empty);
+				}
+			}
+
+			function truncate(s, n){ return s.length>n ? s.slice(0,n-1)+'…' : s; }
+			function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]); }
+			function copyTextToClipboard(t){
+				if(!navigator.clipboard){
+					// fallback
+					const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select();
+					try{ document.execCommand('copy'); }catch(e){}
+					ta.remove(); return;
+				}
+				navigator.clipboard.writeText(t).catch(()=>{});
+			}
+
+			// font-size preference: apply to input/output, persist in localStorage
+			const FONT_KEY = 'wy_font_size_v1';
+			function loadFontSize(){
+				try{
+					const v = localStorage.getItem(FONT_KEY);
+					const n = v ? parseInt(v,10) : NaN;
+					return (Number.isFinite(n) && n>=10 && n<=36) ? n : 14;
+				}catch(e){ return 14; }
+			}
+			function saveFontSize(n){
+				try{ localStorage.setItem(FONT_KEY, String(n)); }catch(e){}
+			}
+			function applyFontSize(n){
+				const inp = document.getElementById('input');
+				const out = document.getElementById('output');
+				if(inp) inp.style.fontSize = n + 'px';
+				if(out) out.style.fontSize = n + 'px';
+				const disp = document.getElementById('fontSizeVal');
+				if(disp) disp.textContent = n + 'px';
+				const range = document.getElementById('fontSizeRange');
+				if(range) range.value = n;
+			}
+
+			// Bind UI (existing bindings are kept; we add font control hooks)
+			document.getElementById('encrypt').addEventListener('click', () => {
+				const input = document.getElementById('input').value || '';
+				const out = encryptText(input);
+				document.getElementById('output').value = out;
+				pushHistory({mode:'encrypt', input:input, output:out, time: Date.now()});
+			});
+			document.getElementById('decrypt').addEventListener('click', () => {
+				const input = document.getElementById('input').value || '';
+				const out = decryptText(input);
+				document.getElementById('output').value = out;
+				pushHistory({mode:'decrypt', input:input, output:out, time: Date.now()});
+			});
+			document.getElementById('copy').addEventListener('click', () => {
+				const out = document.getElementById('output').value || '';
+				copyTextToClipboard(out);
+			});
+			document.getElementById('paste').addEventListener('click', async () => {
+				try{
+					const txt = await navigator.clipboard.readText();
+					document.getElementById('input').value = txt;
+				}catch(e){}
+			});
+			document.getElementById('clearHistory').addEventListener('click', ()=>{
+				if(confirm('确认清空历史？')) clearHistory();
+			});
+			document.getElementById('exportHistory').addEventListener('click', exportHistory);
+			document.getElementById('importHistory').addEventListener('click', ()=>{
+				const ip = document.createElement('input'); ip.type='file'; ip.accept='application/json';
+				ip.onchange = ()=>{ if(ip.files && ip.files[0]) importHistoryFile(ip.files[0]); };
+				ip.click();
+			});
+			document.getElementById('historySearch').addEventListener('input', (e)=>{
+				renderHistory(e.target.value);
+			});
+
+			window.addEventListener('DOMContentLoaded', ()=>{
+				// initialize font size from storage
+				const current = loadFontSize();
+				applyFontSize(current);
+
+				const range = document.getElementById('fontSizeRange');
+				if(range){
+					range.addEventListener('input', (e)=>{
+						const n = parseInt(e.target.value, 10) || 14;
+						applyFontSize(n);
+					});
+					range.addEventListener('change', (e)=>{
+						const n = parseInt(e.target.value, 10) || 14;
+						saveFontSize(n);
+					});
+				}
+				// also save when user leaves the page
+				window.addEventListener('beforeunload', ()=> {
+					const val = parseInt(document.getElementById('fontSizeRange').value,10) || 14;
+					saveFontSize(val);
+				});
+			});
+
+			// render on load
+			renderHistory();
+		})();
+	</script>
+</body>
+</html>
