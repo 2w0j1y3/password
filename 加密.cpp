@@ -13,8 +13,8 @@ inline string outb(int x){
 }
 int main() 
 {
-    freopen("text.txt","r",stdin);
-    freopen("work.txt","w",stdout);
+//    freopen("text.txt","r",stdin);
+//    freopen("work.txt","w",stdout);
     srand(time(0));
     int fir=rand();
     cout<<outb(fir);
@@ -24,4 +24,5 @@ int main()
         cout<<outb(c+fir);
     }
     return 0;
+
 }
