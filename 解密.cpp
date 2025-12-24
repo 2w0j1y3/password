@@ -12,8 +12,8 @@ inline int getb(){
     return x;
 }
 int main() {
-    freopen("text.txt","r",stdin);
-    freopen("work.txt","w",stdout);
+//    freopen("text.txt","r",stdin);
+//    freopen("work.txt","w",stdout);
     char c;c=getchar();
     int fir=getb();
     while(1){
@@ -21,4 +21,5 @@ int main() {
         if(x==-1)break;
         printf("%c",char(x-fir));
     }
+
 }
