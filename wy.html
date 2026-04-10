@@ -1,403 +1,289 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="zh-CN">
 <head>
-	<meta charset="utf-8">
-	<title>Encrypt / Decrypt (compatible with C++ programs)</title>
-	<style>
-		/* Replaced styles: rounded corners, gradient background, subtle shadows, improved buttons */
-		html,body{height:100%}
-		body{
-			font-family:Inter,Segoe UI,Arial,Helvetica,sans-serif;
-			margin:16px;
-			background: linear-gradient(180deg,#0f172a 0%, #071024 60%, #021025 100%);
-			color:#e6eef8;
-			min-height:100vh;
-			-webkit-font-smoothing:antialiased;
-		}
-		.container{
-			max-width:1000px;
-			margin:0 auto;
-			display:grid;
-			grid-template-columns:1fr 360px;
-			gap:18px;
-			align-items:start;
-		}
-		.card{
-			background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
-			border-radius:12px;
-			padding:14px;
-			box-shadow: 0 6px 18px rgba(2,6,23,0.6), inset 0 1px 0 rgba(255,255,255,0.02);
-			backdrop-filter: blur(6px);
-			border:1px solid rgba(255,255,255,0.04);
-		}
-		h3{margin:0 0 8px 0;font-weight:600}
-		/* textarea now uses Consolas and variable font-size */
-		textarea{
-			width:100%;
-			height:120px;
-			margin-bottom:8px;
-			border-radius:8px;
-			border:1px solid rgba(255,255,255,0.06);
-			padding:10px;
-			background:transparent;
-			color:inherit;
-			resize:vertical;
-			font-family: Consolas, "Courier New", monospace;
-			font-size: 14px; /* default; JS may override */
-			line-height:1.4;
-		}
-		.row{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap}
-		.btn{
-			padding:8px 12px;
-			border-radius:8px;
-			border:0;
-			cursor:pointer;
-			background:linear-gradient(90deg,#2563eb,#7c3aed);
-			color:white;
-			box-shadow:0 6px 12px rgba(124,58,237,0.18);
-			transition:transform .08s ease, box-shadow .12s ease, opacity .12s;
-			font-weight:600;
-		}
-		/* small control styles for font size */
-		.font-control{display:flex;align-items:center;gap:8px;padding-left:6px}
-		.font-control input[type=range]{width:160px}
-		.font-control .val{min-width:42px;text-align:right;font-size:13px;opacity:0.95}
-		.btn.secondary{
-			background:linear-gradient(90deg,#0ea5a4,#06b6d4);
-			box-shadow:0 6px 12px rgba(6,182,212,0.12);
-		}
-		.btn.ghost{
-			background:transparent;
-			border:1px solid rgba(255,255,255,0.06);
-			color:#cfe9ff;
-			box-shadow:none;
-		}
-		.btn:active{transform:translateY(1px)}
-		.controls{display:flex;gap:8px;align-items:center}
-		.history-list{max-height:520px;overflow:auto;padding:6px;display:flex;flex-direction:column;gap:8px}
-		.hist-item{
-			padding:10px;border-radius:8px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-			border:1px solid rgba(255,255,255,0.02);font-size:13px;color:#dbeafe;cursor:pointer;
-		}
-		.hist-meta{font-size:12px;opacity:0.8;margin-top:6px;display:flex;justify-content:space-between}
-		.search{width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:inherit;margin-bottom:8px}
-		.small{font-size:12px;opacity:0.9}
-		/* responsive */
-		@media (max-width:900px){
-			.container{grid-template-columns:1fr; padding:8px}
-			.font-control input[type=range]{width:120px}
-		}
-	</style>
+<meta charset="UTF-8">
+<title>SM4 文本+文件加密解密工具</title>
+<style>
+*{box-sizing:border-box;font-family:"Microsoft YaHei",sans-serif}
+body{max-width:960px;margin:30px auto;padding:0 20px;background:#f5f7fa}
+.container{background:white;padding:25px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.1)}
+.login-box{text-align:center;padding:60px 20px}
+.login-box input{padding:10px 15px;width:300px;margin:15px 0;border:1px solid #ddd;border-radius:6px;font-size:16px}
+.login-box button{padding:10px 25px;background:#2d8cf0;color:white;border:none;border-radius:6px;cursor:pointer;font-size:16px}
+.tool-box{display:none}
+textarea{width:100%;height:140px;padding:12px;border:1px solid #ddd;border-radius:6px;resize:vertical;font-size:15px;margin:8px 0}
+.btn-group{display:flex;gap:12px;margin:15px 0;flex-wrap:wrap}
+button{padding:10px 20px;background:#2d8cf0;color:white;border:none;border-radius:6px;cursor:pointer}
+.copy-btn{background:#67c23a}
+.file-box{margin:10px 0;padding:10px;border:1px dashed #ccc;border-radius:6px}
+h2{color:#333;margin-top:0;border-bottom:1px solid #eee;padding-bottom:10px}
+.tip{color:#666;font-size:14px;margin:5px 0}
+#errTip{color:red;display:none}
+</style>
 </head>
 <body>
-	<h2 style="text-align:center;margin-bottom:14px">Encrypt / Decrypt — compatible with C++ outb/getb</h2>
-	<div class="container">
-		<div class="card">
-			<h3>输入（明文或密文）</h3>
-			<textarea id="input"></textarea>
+<div class="container">
+  <!-- 登录 -->
+  <div class="login-box" id="loginBox">
+    <h2>请输入访问口令</h2>
+    <input type="password" id="pwd" placeholder="输入口令">
+    <br>
+    <button onclick="checkLogin()">确认进入</button>
+    <p id="errTip">口令错误，请重试</p>
+  </div>
 
-			<div class="row">
-				<button id="encrypt" class="btn">加密</button>
-				<button id="decrypt" class="btn secondary">解密</button>
-				<button id="copy" class="btn ghost">复制输出</button>
-				<button id="paste" class="btn ghost" title="从剪贴板粘贴到输入">粘贴</button>
+  <!-- 工具 -->
+  <div class="tool-box" id="toolBox">
+    <h2>SM4 文本 + 文件 加密解密工具</h2>
+    <p class="tip">支持：中文 / 大小写 / 符号 / 任意文件，密文纯字母数字</p>
 
-				<!-- font size control added -->
-				<div class="font-control" title="调整输入/输出区域字体大小">
-					<label for="fontSizeRange" style="font-size:13px;opacity:0.9">字体大小</label>
-					<input id="fontSizeRange" type="range" min="10" max="24" step="1" value="14" />
-					<div id="fontSizeVal" class="val">14px</div>
-				</div>
-			</div>
+    <!-- 文本区 -->
+    <label><strong>文本输入（加密/解密）：</strong></label>
+    <textarea id="inputText" placeholder="输入文本加密，或粘贴密文解密"></textarea>
+    <div class="btn-group">
+      <button onclick="runEncrypt()">文本加密</button>
+      <button onclick="runDecrypt()">文本解密</button>
+      <button class="copy-btn" onclick="copyText()">复制结果</button>
+    </div>
+    <label><strong>文本结果：</strong></label>
+    <textarea id="outputText" readonly placeholder="结果显示在这里"></textarea>
 
-			<h3>输出</h3>
-			<textarea id="output" readonly></textarea>
+    <br><br>
+    <!-- 文件区 -->
+    <div class="file-box">
+      <h3>文件加密解密</h3>
+      <input type="file" id="fileInput" multiple><br><br>
+      <div class="btn-group">
+        <button onclick="encryptFile()">加密文件</button>
+        <button onclick="decryptFile()">解密文件</button>
+      </div>
+    </div>
+  </div>
+</div>
 
-			<p class="small">Tip: 点击历史项可将该条内容恢复到输入（或复制到输出）。历史保存在本地浏览器。</p>
-		</div>
+<script>
+// ========== 配置 ==========
+const ACCESS_PWD = "123456";
+const CHARS = "abcdefghijklmnopqrstuvwxyz0123456789";
 
-		<!-- History panel -->
-		<div class="card" aria-labelledby="history-title">
-			<h3 id="history-title">查询历史</h3>
-			<input id="historySearch" class="search" placeholder="搜索（输入/输出/模式/时间）" />
-			<div class="row" style="margin-bottom:6px">
-				<button id="clearHistory" class="btn ghost">清空历史</button>
-				<button id="exportHistory" class="btn ghost">导出</button>
-				<button id="importHistory" class="btn ghost">导入</button>
-			</div>
-			<div id="historyList" class="history-list" aria-live="polite"></div>
-		</div>
-	</div>
+// SM4 SBOX
+const SM4_SBOX = new Uint8Array([
+0xd6,0x90,0xe9,0xfe,0xcc,0xe1,0x3d,0xb7,0x16,0xb6,0x14,0xc2,0x28,0xfb,0x2c,0x05,
+0x2b,0x67,0x9a,0x76,0x9b,0x30,0x55,0x82,0x0c,0x0d,0xaf,0x10,0x08,0x23,0x51,0x50,
+0x7b,0x91,0x92,0x0b,0x74,0x83,0x66,0x4f,0x12,0xbd,0x06,0x6b,0x59,0x85,0x43,0x00,
+0xfa,0x71,0x48,0x75,0x52,0x35,0x07,0x95,0x60,0x7f,0x96,0x5c,0x6a,0x88,0x78,0xb2,
+0x79,0x17,0xbe,0x5f,0x62,0x73,0xf9,0x89,0x1d,0xbc,0xdf,0x25,0x32,0x31,0xdc,0x54,
+0x9c,0x11,0x94,0x97,0xec,0x63,0x65,0x70,0x39,0x40,0xe7,0xae,0x81,0x09,0x6d,0x1b,
+0x37,0x8d,0x61,0x4b,0x15,0x1a,0x01,0xf8,0xef,0x7e,0x8a,0x19,0x4d,0x5a,0x56,0x02,
+0xe5,0x98,0x7c,0x03,0xe6,0xda,0x69,0xa7,0x21,0x20,0x2e,0x8e,0x41,0xee,0x45,0x3f,
+0x22,0x44,0x58,0xdb,0xcf,0x5d,0x38,0xa5,0xad,0x04,0x29,0x46,0xc3,0x7d,0x34,0x3b,
+0x0f,0xeb,0x57,0xe8,0xec,0x6f,0x47,0x49,0x9e,0xa1,0xf6,0x5e,0x2a,0xde,0x72,0x99,
+0x18,0x26,0xb1,0xb0,0x5f,0x80,0x0a,0x93,0x86,0x27,0x4e,0xc8,0xff,0x8c,0x0e,0xe2,
+0xca,0x8f,0xa9,0x42,0x36,0x4a,0xd5,0x2f,0x36,0x18,0xf0,0x6c,0x7a,0xb8,0x42,0x13,
+0xf2,0x8b,0xc5,0x68,0x1b,0xf1,0x5b,0x4a,0xeb,0x9f,0x53,0xe3,0x33,0x3a,0x4c,0x1f,
+0xdd,0x92,0x4f,0x6e,0x77,0xd8,0xe4,0xba,0x59,0x3c,0x87,0xf7,0x12,0x0e,0x9d,0x3d,
+0x1c,0x5b,0x7c,0x2d,0xf4,0x40,0x11,0x0d,0x64,0x7b,0xa4,0x25,0xab,0x9e,0x0f,0xd1,
+0x5e,0x84,0x2b,0x9f,0x77,0x66,0xaa,0x4c,0x10,0xd9,0x01,0xe4,0x68,0x17,0x35,0x06
+]);
 
-	<script>
-		// filepath: e:\c++.code\own\password\wy.html
+function rotl(x, n) {
+    return (x << n) | (x >>> (32 - n));
+}
 
-		// 与 C++ outb/getb 兼容的实现（加密.cpp / 解密.cpp）
-		function outb(x) {
-			// base y in [2,7]
-			const y = Math.floor(Math.random() * 4) + 4; // 2..7
-			// prefix: '8' or '9'
-			const prefix = String.fromCharCode(56 + Math.floor(Math.random() * 2)); // 56 == '8'
-			if (x === 0) {
-				// prefix + base only (no digits)
-				return prefix + String.fromCharCode(48 + y);
-			}
-			let s = '';
-			let v = x;
-			while (v > 0) {
-				const d = v % y;
-				s = String.fromCharCode(48 + d) + s;
-				v = Math.floor(v / y);
-			}
-			return prefix + String.fromCharCode(48 + y) + s;
-		}
+function sub(x) {
+    return (SM4_SBOX[(x >>> 24) & 0xff] << 24) |
+           (SM4_SBOX[(x >>> 16) & 0xff] << 16) |
+           (SM4_SBOX[(x >>> 8) & 0xff] << 8) |
+           SM4_SBOX[x & 0xff];
+}
 
-		function encryptText(text) {
-			// fir 类似 C++ rand() -> 0..32767
-			const fir = Math.floor(Math.random() * 32768);
-			let out = outb(fir);
-			for (let i = 0; i < text.length; i++) {
-				const code = text.charCodeAt(i);
-				out += outb(code + fir);
-			}
-			return out;
-		}
+function sm4Key(key) {
+    const FK = new Uint32Array([0xa3b1bac6,0x56aa3350,0x677d9197,0xb27022dc]);
+    const CK = new Uint32Array([
+0x00070e15,0x1c232a31,0x383f464d,0x545b6269,0x70777e85,0x8c939aa1,0xa8afb6bd,0xc4cbd2d9,
+0xe0e7eef5,0xfc030a11,0x181f262d,0x343b4249,0x50575e65,0x6c737a81,0x888f969d,0xa4abb2b9,
+0xc0c7ced5,0xdce3eaf1,0xf8ff060d,0x141b2229,0x30373e45,0x4c535a61,0x686f767d,0x848b9299,
+0xa0a7aeb5,0xbcc3cad1,0xd8dfe6ed,0xf4fb0209,0x10171e25,0x2c333a41,0x484f565d,0x646b7279
+    ]);
+    const k = new Uint32Array(4);
+    for(let i=0;i<4;i++){
+        k[i] = (key[i*4]<<24)|(key[i*4+1]<<16)|(key[i*4+2]<<8)|key[i*4+3];
+    }
+    for(let i=0;i<4;i++)k[i]^=FK[i];
+    const rk = new Uint32Array(32);
+    for(let i=0;i<32;i++){
+        let t = k[1]^k[2]^k[3]^CK[i];
+        t = sub(t);
+        rk[i] = k[0]^rotl(t,2)^rotl(t,10)^rotl(t,18)^rotl(t,24);
+        k[0]=k[1];k[1]=k[2];k[2]=k[3];k[3]=rk[i];
+    }
+    return rk;
+}
 
-		function parseEncodedString(s) {
-			// 解析以 '8' 或 '9' 开始的块序列，返回整数数组（包括第一个 fir）
-			const nums = [];
-			let i = 0;
-			const n = s.length;
-			while (i < n) {
-				// 找到前缀 '8' 或 '9'
-				while (i < n && s[i] !== '8' && s[i] !== '9') i++;
-				if (i >= n) break;
-				i++; // 跳过前缀
-				if (i >= n) break;
-				const baseChar = s[i++];
-				const y = baseChar.charCodeAt(0) - 48;
-				if (!(y >= 2 && y <= 7)) {
-					// 非法格式，继续寻找下一个前缀
-					continue;
-				}
-				let x = 0;
-				// 读取在 base y 中的连续数字字符，直到遇到下一个前缀 ('8' 或 '9') 或结束
-				while (i < n && s[i] !== '8' && s[i] !== '9') {
-					const digit = s[i].charCodeAt(0) - 48;
-					// 如果不是有效数字则停止读取该块（与 C++ 相比更鲁棒地跳出）
-					if (digit < 0 || digit >= y) { i++; continue; }
-					x = x * y + digit;
-					i++;
-				}
-				nums.push(x);
-				// 下次循环会从下一个前缀开始（若存在）
-			}
-			return nums;
-		}
+function sm4Encrypt(rk, buf){
+    const x = new Uint32Array(4);
+    for(let i=0;i<4;i++){
+        x[i]=(buf[i*4]<<24)|(buf[i*4+1]<<16)|(buf[i*4+2]<<8)|buf[i*4+3];
+    }
+    for(let i=0;i<32;i++){
+        let t = x[1]^x[2]^x[3]^rk[i];
+        t=sub(t);
+        let tmp=x[0]^rotl(t,2)^rotl(t,10)^rotl(t,18)^rotl(t,24);
+        x[0]=x[1];x[1]=x[2];x[2]=x[3];x[3]=tmp;
+    }
+    const out=new Uint8Array(16);
+    for(let i=0;i<4;i++){
+        let v=x[3-i];
+        out[i*4]=(v>>>24)&0xff;
+        out[i*4+1]=(v>>>16)&0xff;
+        out[i*4+2]=(v>>>8)&0xff;
+        out[i*4+3]=v&0xff;
+    }
+    return out;
+}
 
-		function decryptText(s) {
-			const nums = parseEncodedString(s);
-			if (nums.length === 0) return '';
-			const fir = nums[0];
-			let out = '';
-			for (let k = 1; k < nums.length; k++) {
-				const val = nums[k] - fir;
-				if (val < 0) continue;
-				out += String.fromCharCode(val);
-			}
-			return out;
-		}
+function keyStream(seed, len){
+    const key=new Uint8Array(16);
+    new DataView(key.buffer).setUint32(0,seed,false);
+    const rk=sm4Key(key);
+    const ks=new Uint8Array(len);
+    const buf=new Uint8Array(16);
+    let pos=0;
+    while(pos<len){
+        let v=new DataView(buf.buffer).getUint32(0,false);
+        v=(v+1)>>>0;
+        new DataView(buf.buffer).setUint32(0,v,false);
+        const b=sm4Encrypt(rk,buf);
+        let c=Math.min(16,len-pos);
+        ks.set(b.subarray(0,c),pos);
+        pos+=c;
+    }
+    return ks;
+}
 
-		// New: history management (save to localStorage, render, search, import/export)
-		(function(){
-			const KEY = 'wy_history_v1';
-			const MAX = 20;
+// base36
+function b36en(d){
+    let s='';
+    for(let v of d){
+        s+=CHARS[Math.floor(v/36)];
+        s+=CHARS[v%36];
+    }
+    return s;
+}
+function b36de(s){
+    const a=[];
+    for(let i=0;i<s.length;i+=2){
+        let h=CHARS.indexOf(s[i]);
+        let l=CHARS.indexOf(s[i+1]);
+        a.push((h*36+l)&0xff);
+    }
+    return new Uint8Array(a);
+}
 
-			function loadHistory(){
-				try{
-					const raw = localStorage.getItem(KEY);
-					if(!raw) return [];
-					return JSON.parse(raw) || [];
-				}catch(e){ return []; }
-			}
-			function saveHistory(arr){
-				try{
-					localStorage.setItem(KEY, JSON.stringify(arr.slice(0, MAX)));
-				}catch(e){}
-			}
-			function pushHistory(entry){
-				const arr = loadHistory();
-				arr.unshift(entry);
-				saveHistory(arr);
-				renderHistory();
-			}
-			function clearHistory(){
-				localStorage.removeItem(KEY);
-				renderHistory();
-			}
-			function exportHistory(){
-				const arr = loadHistory();
-				const blob = new Blob([JSON.stringify(arr, null, 2)], {type:'application/json'});
-				const url = URL.createObjectURL(blob);
-				const a = document.createElement('a');
-				a.href = url; a.download = 'wy_history.json'; document.body.appendChild(a); a.click();
-				setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 500);
-			}
-			function importHistoryFile(file){
-				const reader = new FileReader();
-				reader.onload = () => {
-					try{
-						const parsed = JSON.parse(reader.result);
-						if(Array.isArray(parsed)){
-							const existing = loadHistory();
-							const merged = parsed.concat(existing).slice(0, MAX);
-							saveHistory(merged);
-							renderHistory();
-						}
-					}catch(e){}
-				};
-				reader.readAsText(file);
-			}
+// 文本加密解密
+function encryptStr(txt){
+    const seed=crypto.getRandomValues(new Uint32Array(1))[0];
+    const data=new TextEncoder().encode(txt);
+    const ks=keyStream(seed,data.length);
+    const c=new Uint8Array(data.length);
+    for(let i=0;i<data.length;i++)c[i]=data[i]^ks[i];
+    const sb=new Uint8Array(4);
+    new DataView(sb.buffer).setUint32(0,seed,false);
+    return b36en(sb)+b36en(c);
+}
+function decryptStr(s){
+    if(s.length<8)return "密文格式错误";
+    try{
+        const seedBuf=b36de(s.slice(0,8));
+        const seed=new DataView(seedBuf.buffer).getUint32(0,false);
+        const dataBuf=b36de(s.slice(8));
+        const ks=keyStream(seed,dataBuf.length);
+        const o=new Uint8Array(dataBuf.length);
+        for(let i=0;i<o.length;i++)o[i]=dataBuf[i]^ks[i];
+        return new TextDecoder().decode(o);
+    }catch(e){
+        return "解密失败";
+    }
+}
 
-			function formatTime(ts){
-				const d = new Date(ts);
-				return d.toLocaleString();
-			}
+// 文件通用处理
+function readFile(file){
+    return new Promise((resolve,reject)=>{
+        const fr=new FileReader();
+        fr.onload=()=>resolve(new Uint8Array(fr.result));
+        fr.onerror=reject;
+        fr.readAsArrayBuffer(file);
+    });
+}
+function download(data, name){
+    const blob=new Blob([data],{type:"application/octet-stream"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url; a.download=name;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+}
 
-			function renderHistory(filter){
-				const list = document.getElementById('historyList');
-				list.innerHTML = '';
-				const arr = loadHistory();
-				const q = (filter||'').toLowerCase().trim();
-				let count = 0;
-				for(const it of arr){
-					const text = (it.input||'') + ' ' + (it.output||'') + ' ' + (it.mode||'') + ' ' + formatTime(it.time);
-					if(q && !text.toLowerCase().includes(q)) continue;
-					const item = document.createElement('div');
-					item.className = 'hist-item';
-					item.title = '点击复制/恢复此记录';
-					item.innerHTML = '<div style="font-weight:600">' + escapeHtml(truncate(it.mode + ': ' + (it.input||''), 80)) + '</div>'
-						+ '<div style="margin-top:6px;word-break:break-all;color:#bfe0ff">' + escapeHtml(truncate(it.output||'', 160)) + '</div>'
-						+ '<div class="hist-meta"><span>' + escapeHtml(formatTime(it.time)) + '</span><span>' + escapeHtml(it.mode) + '</span></div>';
-					item.addEventListener('click', ()=>{
-						// clicking toggles: left-click fills input with input; shift-click copies output
-						if(event.shiftKey){
-							copyTextToClipboard(it.output||'');
-						}else{
-							document.getElementById('input').value = it.input || '';
-							document.getElementById('output').value = it.output || '';
-						}
-					});
-					list.appendChild(item);
-					count++;
-					if(count >= MAX) break;
-				}
-				if(count === 0){
-					const empty = document.createElement('div');
-					empty.className = 'small';
-					empty.style.opacity = '0.8';
-					empty.textContent = '无历史记录';
-					list.appendChild(empty);
-				}
-			}
+// 文件加密
+async function encryptFile(){
+    const inp=document.getElementById("fileInput");
+    if(!inp.files.length){alert("请选择文件");return}
+    for(let f of inp.files){
+        const buf=await readFile(f);
+        const seed=crypto.getRandomValues(new Uint32Array(1))[0];
+        const ks=keyStream(seed,buf.length);
+        const out=new Uint8Array(buf.length);
+        for(let i=0;i<buf.length;i++)out[i]=buf[i]^ks[i];
+        const sb=new Uint8Array(4);
+        new DataView(sb.buffer).setUint32(0,seed,false);
+        const final=new Uint8Array(4+out.length);
+        final.set(sb); final.set(out,4);
+        download(final,f.name+".enc");
+    }
+}
 
-			function truncate(s, n){ return s.length>n ? s.slice(0,n-1)+'…' : s; }
-			function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]); }
-			function copyTextToClipboard(t){
-				if(!navigator.clipboard){
-					// fallback
-					const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select();
-					try{ document.execCommand('copy'); }catch(e){}
-					ta.remove(); return;
-				}
-				navigator.clipboard.writeText(t).catch(()=>{});
-			}
+// 文件解密
+async function decryptFile(){
+    const inp=document.getElementById("fileInput");
+    if(!inp.files.length){alert("请选择加密后的文件");return}
+    for(let f of inp.files){
+        const buf=await readFile(f);
+        if(buf.length<4){alert("文件无效");continue}
+        const seed=new DataView(buf.buffer).getUint32(0,false);
+        const data=buf.slice(4);
+        const ks=keyStream(seed,data.length);
+        const out=new Uint8Array(data.length);
+        for(let i=0;i<data.length;i++)out[i]=data[i]^ks[i];
+        let name=f.name.endsWith(".enc")?f.name.slice(0,-4):f.name+".dec";
+        download(out,name);
+    }
+}
 
-			// font-size preference: apply to input/output, persist in localStorage
-			const FONT_KEY = 'wy_font_size_v1';
-			function loadFontSize(){
-				try{
-					const v = localStorage.getItem(FONT_KEY);
-					const n = v ? parseInt(v,10) : NaN;
-					return (Number.isFinite(n) && n>=10 && n<=36) ? n : 14;
-				}catch(e){ return 14; }
-			}
-			function saveFontSize(n){
-				try{ localStorage.setItem(FONT_KEY, String(n)); }catch(e){}
-			}
-			function applyFontSize(n){
-				const inp = document.getElementById('input');
-				const out = document.getElementById('output');
-				if(inp) inp.style.fontSize = n + 'px';
-				if(out) out.style.fontSize = n + 'px';
-				const disp = document.getElementById('fontSizeVal');
-				if(disp) disp.textContent = n + 'px';
-				const range = document.getElementById('fontSizeRange');
-				if(range) range.value = n;
-			}
-
-			// Bind UI (existing bindings are kept; we add font control hooks)
-			document.getElementById('encrypt').addEventListener('click', () => {
-				const input = document.getElementById('input').value || '';
-				const out = encryptText(input);
-				document.getElementById('output').value = out;
-				pushHistory({mode:'encrypt', input:input, output:out, time: Date.now()});
-			});
-			document.getElementById('decrypt').addEventListener('click', () => {
-				const input = document.getElementById('input').value || '';
-				const out = decryptText(input);
-				document.getElementById('output').value = out;
-				pushHistory({mode:'decrypt', input:input, output:out, time: Date.now()});
-			});
-			document.getElementById('copy').addEventListener('click', () => {
-				const out = document.getElementById('output').value || '';
-				copyTextToClipboard(out);
-			});
-			document.getElementById('paste').addEventListener('click', async () => {
-				try{
-					const txt = await navigator.clipboard.readText();
-					document.getElementById('input').value = txt;
-				}catch(e){}
-			});
-			document.getElementById('clearHistory').addEventListener('click', ()=>{
-				if(confirm('确认清空历史？')) clearHistory();
-			});
-			document.getElementById('exportHistory').addEventListener('click', exportHistory);
-			document.getElementById('importHistory').addEventListener('click', ()=>{
-				const ip = document.createElement('input'); ip.type='file'; ip.accept='application/json';
-				ip.onchange = ()=>{ if(ip.files && ip.files[0]) importHistoryFile(ip.files[0]); };
-				ip.click();
-			});
-			document.getElementById('historySearch').addEventListener('input', (e)=>{
-				renderHistory(e.target.value);
-			});
-
-			window.addEventListener('DOMContentLoaded', ()=>{
-				// initialize font size from storage
-				const current = loadFontSize();
-				applyFontSize(current);
-
-				const range = document.getElementById('fontSizeRange');
-				if(range){
-					range.addEventListener('input', (e)=>{
-						const n = parseInt(e.target.value, 10) || 14;
-						applyFontSize(n);
-					});
-					range.addEventListener('change', (e)=>{
-						const n = parseInt(e.target.value, 10) || 14;
-						saveFontSize(n);
-					});
-				}
-				// also save when user leaves the page
-				window.addEventListener('beforeunload', ()=> {
-					const val = parseInt(document.getElementById('fontSizeRange').value,10) || 14;
-					saveFontSize(val);
-				});
-			});
-
-			// render on load
-			renderHistory();
-		})();
-	</script>
+// 界面
+function checkLogin(){
+    const v=document.getElementById("pwd").value;
+    if(v===ACCESS_PWD){
+        document.getElementById("loginBox").style.display="none";
+        document.getElementById("toolBox").style.display="block";
+    }else{
+        document.getElementById("errTip").style.display="block";
+    }
+}
+function runEncrypt(){
+    const t=document.getElementById("inputText").value;
+    if(!t){alert("请输入内容");return}
+    document.getElementById("outputText").value=encryptStr(t);
+}
+function runDecrypt(){
+    const t=document.getElementById("inputText").value;
+    if(!t){alert("请输入密文");return}
+    document.getElementById("outputText").value=decryptStr(t);
+}
+function copyText(){
+    const t=document.getElementById("outputText").value;
+    if(!t){alert("无内容");return}
+    navigator.clipboard.writeText(t).then(()=>alert("复制成功"));
+}
+</script>
 </body>
 </html>
